@@ -26,3 +26,21 @@ def roman(n):
         while n >= v:
             out, n = out + s, n - v
     return out
+
+
+LH = "1 = index &middot; 2 = middle &middot; 3 = ring &middot; 4 = pinky"
+
+
+def uses_fretting(block):
+    return any("pattern" in v for e in block.EXERCISES for v in e["vars"])
+
+
+def legend(block):
+    lines = ["a = ring", "m = middle", "i = index"]
+    if uses_fretting(block):
+        lines.append("1&ndash;4 = fretting")
+    return "<br>".join(lines)
+
+
+def plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"

@@ -23,14 +23,20 @@ def build_block(block):
     n = block.NUMBER
     print(f"block {n}: notation", flush=True)
     svgs = scores.render(block, BUILD / f"block-{n}")
-    for name, (_, fingers) in svgs.items():
-        print(f"  {name:7s} {' '.join(fingers)}")
+    for name, (_, fingers, lh) in svgs.items():
+        print(f"  {name:7s} RH {' '.join(fingers)}")
+        if any(lh):
+            print(f"  {'':7s} LH {' '.join(str(x or '-') for x in lh)}")
+            pairs = {}
+            for f, l in zip(fingers, lh):
+                pairs.setdefault(l, []).append(f)
+            print(f"  {'':7s} each LH finger gets: " +
+                  "  ".join(f"{l}:{''.join(sorted(v, key='ami'.index))}" for l, v in sorted(pairs.items(), key=lambda x: x[0] or 0)))
     out = block_dir(n)
     out.mkdir(parents=True, exist_ok=True)
     pdf_path = out / pdf_name(n)
     print(f"block {n}: pdf", flush=True)
-    pdf.build(block, svgs, pdf_path)
-    pages = 2 + len(block.EXERCISES)          # cover + description + one page per exercise
+    pages = pdf.build(block, svgs, pdf_path)
     print(f"block {n}: web page", flush=True)
     (out / "index.html").write_text(web.block_page(block, svgs, pdf_path.stat().st_size, pages))
 

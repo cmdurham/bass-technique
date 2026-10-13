@@ -42,21 +42,39 @@ cd /tmp/srv && python3 -m http.server 8080      # then open http://localhost:808
 
 ## Adding a block
 
-1. Copy `tools/blocks/block_1.py` to `block_2.py` and set `NUMBER`, `SUBTITLE`, `CARD`, `PITCHES`,
-   `DESCRIPTION` and `EXERCISES`.
-2. Each variation lists the **string per note** (`strings`), the rhythm and the line breaks.
-   Fingerings are never written by hand: `tools/scores.py` derives them.
-3. Run `python3 tools/build.py 2`, check the printed fingerings, then commit and push.
+1. Copy the closest existing block (`tools/blocks/block_1.py` for plucking-only, `block_2.py` for
+   fretting work) to `block_N.py` and set `NUMBER`, `SUBTITLE`, `FOCUS` (index-card label,
+   default "Plucking hand"), `CARD`, `DESCRIPTION` and `EXERCISES`.
+2. Write each variation one of two ways:
+   - `strings=["E", "A", ...]`: one string per note, with one fixed pitch per string from
+     the block's `PITCHES` (Block 1).
+   - `pattern=[("E", 8), ("E", 9), ...]` plus `position=8`: a fretting pattern that repeats.
+     The fretting finger is `fret - position + 1`; write `("E", 9, 3)` to override it. The
+     fretting fingers print above the staff.
+   - Rhythm and layout: `dur` (LilyPond duration), `time`, `per_bar`, `bars_per_line`, `tempo`,
+     optional `beat` (tempo note, default `"4"`). With `pattern=`, `length` defaults to `"auto"`.
+3. Run `python3 tools/build.py N`. It prints the plucking fingers for every variation, plus the
+   fretting fingers and which plucking fingers each fretting finger gets. Check those against
+   your intent, then commit and push.
+
+Exercise pages flow: when an exercise has more variations than fit on one PDF page, it
+continues onto the next page with the same footer, and a variation is never split across pages.
 
 ## Plucking rules (as implemented in `tools/scores.py`)
 
-- PIMA labels, lowercase: p thumb, i index, m middle, a ring.
+- PIMA labels, lowercase: p thumb, i index, m middle, a ring. Fretting fingers 1–4, index to pinky.
 - The cycle is **a–m–i**, in strict order, never reset.
 - **Rake:** when the next note is on a lower-pitched string (toward the E string), the finger
   that played the last note plays again on the new string, and the cycle continues from it.
   Set `rake=False` on a variation to turn this off.
-- Every variation must close: the finger that would follow its last note has to be its first
-  finger, so the repeat sign always returns to `a`. The build fails if one doesn't.
+- The build fails unless every variation:
+  - **closes the plucking cycle:** the finger that would follow the last note is the first
+    finger, so the repeat always returns to `a`;
+  - **closes the fretting pattern:** the length is a whole number of patterns;
+  - **fills whole bars.**
+
+  `length="auto"` picks the shortest length that passes all three. For example, a 4-note
+  pattern against the 3-finger cycle closes at 12 notes, three bars of quarter notes.
 
 ## Notation conventions
 

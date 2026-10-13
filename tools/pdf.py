@@ -1,7 +1,7 @@
 """Printable workbook PDF for a block (US Letter), style C: yellow, Anton, tape labels."""
 import pathlib, re
 from weasyprint import HTML
-from common import PROGRAM, PIMA, ROOT, Y, roman
+from common import PROGRAM, PIMA, LH, ROOT, Y, roman, legend, uses_fretting
 
 FONTS = ROOT / "fonts"
 FACES = [("Anton", "anton", 400), ("Special Elite", "special-elite", 400),
@@ -17,7 +17,7 @@ def faces():
 CSS = f'''
 @page {{ size: letter; margin: 0 }}
 body {{ margin:0; font-family:'Inter Tight'; color:#111 }}
-.page {{ width:8.5in; height:11in; position:relative; overflow:hidden; page-break-after:always }}
+.page {{ width:8.5in; height:11in; position:relative; overflow:hidden; break-after:page }}
 .score {{ display:block }}
 /* cover */
 .cover {{ background:{Y} }}
@@ -41,7 +41,15 @@ body {{ margin:0; font-family:'Inter Tight'; color:#111 }}
 .vrow {{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:.06in }}
 .vt {{ font-family:'Special Elite'; font-size:11.5pt }}
 .leg {{ font-family:'Special Elite'; font-size:9.5pt; border:1.5pt solid #111; padding:3pt 9pt; line-height:1.45; text-align:center }}
-.var {{ margin-bottom:.32in }}
+.var {{ margin-bottom:.32in; break-inside:avoid }}
+@page ex {{ margin:.7in .75in 1.02in .75in;
+  @bottom-left {{ content:"{PROGRAM}"; width:50%; vertical-align:top; border-top:3pt solid #111; padding-top:.07in;
+                 font-family:'Anton'; font-size:10pt; text-transform:uppercase; letter-spacing:.06em }}
+  @bottom-right {{ content:string(exfoot); width:50%; text-align:right; vertical-align:top; border-top:3pt solid #111;
+                  padding-top:.07in; font-family:'Anton'; font-size:10pt; text-transform:uppercase; letter-spacing:.06em;
+                  }} }}
+.exflow {{ page:ex; break-before:page }}
+.foottag {{ string-set:exfoot content(text); height:0; overflow:hidden; font-size:1pt; color:transparent }}
 .pf {{ position:absolute; bottom:0; left:0; right:0; border-top:3pt solid #111; padding-top:.07in; display:flex;
       justify-content:space-between; font-family:'Anton'; font-size:10pt; text-transform:uppercase; letter-spacing:.06em }}
 .desc p {{ font-size:11pt; line-height:1.5; margin:0 0 .16in; max-width:6.2in }}
@@ -51,7 +59,6 @@ body {{ margin:0; font-family:'Inter Tight'; color:#111 }}
 .pimabox b {{ font-family:'Anton'; font-weight:400; letter-spacing:.04em; margin-right:.1in }}
 '''
 
-LEGEND = '<div class="leg">a = ring<br>m = middle<br>i = index</div>'
 
 
 def score_img(svg_path, width_mm=178):
@@ -67,20 +74,22 @@ def build(block, svgs, out_pdf):
 <h1>Three<br>Finger<br>Plucking</h1><div class="goth">Program</div>
 <div class="tape">BLOCK {B} &mdash; {block.SUBTITLE.lower().replace(" and ", " &amp; ")}</div>
 <div class="toc"><div>{"".join(toc[:half])}</div><div>{"".join(toc[half:])}</div>
-<div class="leg2">a = ring<br>m = middle<br>i = index</div></div></div></section>'''
+<div class="leg2">{legend(block)}</div></div></div></section>'''
+    lh_line = f'<br><b>LH</b>{LH}' if uses_fretting(block) else ""
     paras = "".join(f'<p{" class=first" if i == 0 else ""}>{t}</p>' for i, t in enumerate(block.DESCRIPTION))
     desc = f'''<section class="page desc"><div class="wrap"><div class="rule"></div>
 <div class="hd"><div class="lbl">Block {B}</div><div class="g">Program</div></div>{paras}
-<div class="pimabox"><b>PIMA</b>{PIMA}</div>
+<div class="pimabox"><b>PIMA</b>{PIMA}{lh_line}</div>
 <div class="pf"><span>{PROGRAM}</span><span>Block {B}</span></div></div></section>'''
     pages = []
     for e in block.EXERCISES:
         vs = "".join(f'''<div class="var"><div class="vrow"><div class="vt">Variation #{k}: {v["title"]}</div>
-{LEGEND if k == 1 else ""}</div>{score_img(svgs[f"ex{e['n']}_v{k}"][0])}</div>''' for k, v in enumerate(e["vars"], 1))
-        pages.append(f'''<section class="page"><div class="wrap"><div class="rule"></div>
+{f'<div class="leg">{legend(block)}</div>' if k == 1 else ""}</div>{score_img(svgs[f"ex{e['n']}_v{k}"][0])}</div>''' for k, v in enumerate(e["vars"], 1))
+        pages.append(f'''<section class="exflow"><div class="foottag">Block {B} &middot; Ex {e['n']}</div><div class="rule"></div>
 <div class="hd"><div class="lbl">Exercise {e['n']}</div><div class="g">Block {roman(B)}</div></div>
-<p class="intro">{e['intro']}</p>{vs}
-<div class="pf"><span>{PROGRAM}</span><span>Block {B} &middot; Ex {e['n']}</span></div></div></section>''')
+<p class="intro">{e['intro']}</p>{vs}</section>''')
     html = (f"<html><head><meta charset='utf-8'><title>{PROGRAM} &ndash; Block {B}</title>"
             f"<style>{faces()}{CSS}</style></head><body>{cover}{desc}{''.join(pages)}</body></html>")
-    HTML(string=html).write_pdf(out_pdf)
+    doc = HTML(string=html).render()
+    doc.write_pdf(out_pdf)
+    return len(doc.pages)

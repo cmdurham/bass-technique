@@ -1,6 +1,6 @@
 """Web pages: one page per block, plus the section index at the repo root."""
 import re
-from common import PROGRAM, PROGRAM_DIR, YEAR, PIMA, pdf_name, roman
+from common import PROGRAM, PROGRAM_DIR, YEAR, PIMA, LH, pdf_name, roman, legend, uses_fretting, plural
 
 FAVICON = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"
            "<rect width='100' height='100' fill='%23FFD400'/><text x='50' y='70' font-size='56' text-anchor='middle' "
@@ -41,6 +41,7 @@ def inline_svg(path, label):
 
 def block_page(block, svgs, pdf_bytes, pdf_pages):
     B, root = block.NUMBER, "../../"
+    lh_line = f'<br><b>LH</b>{LH}' if uses_fretting(block) else ""
     toc = "".join(f'<li><a href="#ex{e["n"]}"><b>{e["n"]:02d}</b>{e["short"]}</a></li>' for e in block.EXERCISES)
     parts = [
         head(f"{PROGRAM} — Block {B} · cmdurham.com",
@@ -52,16 +53,16 @@ def block_page(block, svgs, pdf_bytes, pdf_pages):
 <div class="tape">BLOCK {B} &mdash; {block.SUBTITLE.lower().replace(" and ", " &amp; ")}</div><br>
 <a class="dl" href="{pdf_name(B)}" download>Download the PDF <small>{pdf_bytes // 1024} KB &middot; {pdf_pages} pages</small></a>
 <nav class="toc" aria-label="Exercises"><ol>{toc}</ol>
-<div class="legend-inline">a = ring<br>m = middle<br>i = index</div></nav>
+<div class="legend-inline">{legend(block)}</div></nav>
 </div></section>
 <main class="wrap">
 <section class="sec" id="about"><div class="sec-hd"><h2 class="label">Block {B}</h2><div class="g">Program</div></div>
 {"".join(f"<p{' class=intro' if i == 0 else ''}>{t}</p>" for i, t in enumerate(block.DESCRIPTION))}
-<div class="pima"><b>PIMA</b>{PIMA}</div></section>''']
+<div class="pima"><b>PIMA</b>{PIMA}{lh_line}</div></section>''']
     for e in block.EXERCISES:
         vs = []
         for k, v in enumerate(e["vars"], 1):
-            leg = '<div class="legend">a = ring<br>m = middle<br>i = index</div>' if k == 1 else ""
+            leg = f'<div class="legend">{legend(block)}</div>' if k == 1 else ""
             svg = inline_svg(svgs[f"ex{e['n']}_v{k}"][0], f"Exercise {e['n']}, variation {k}: {v['title']}, notation and tab")
             vs.append(f'''<div class="var"><div class="var-hd"><h3>Variation #{k}: {v["title"]}</h3>{leg}</div>
 <div class="score">{svg}</div>
@@ -77,7 +78,7 @@ def index_page(blocks):
     for b in blocks:
         n_ex = len(b.EXERCISES)
         cards.append(f'''<a class="card live" href="{PROGRAM_DIR}/block-{b.NUMBER}/">
-<div class="meta">Plucking hand &middot; {n_ex} exercises &middot; PDF</div>
+<div class="meta">{getattr(b, "FOCUS", "Plucking hand")} &middot; {plural(n_ex, "exercise")} &middot; PDF</div>
 <h3>Block {b.NUMBER}</h3>
 <p><b>{b.SUBTITLE}.</b> {b.CARD}</p>
 <span class="cta">Open Block {b.NUMBER} &rarr;</span></a>''')
