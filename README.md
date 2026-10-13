@@ -25,15 +25,28 @@ Everything under `three-finger-plucking/` and the root `index.html` is generated
 
 ```bash
 pip install lilypond weasyprint     # lilypond ships its own binary; nothing else to install
-python3 tools/build.py              # all blocks + index
-python3 tools/build.py 2            # one block + index
+python3 tools/build.py 2            # publish build of one block + index, into the repo
+python3 tools/build.py              # publish build of every non-draft block + index
+python3 tools/build.py --preview 2  # preview build, drafts included, into tools/.build/site/
 ```
+
+Build only the block you changed. Every build rewrites that block's PDF with fresh metadata,
+so rebuilding untouched blocks produces binary diffs with no visible change.
+
+### Drafts
+
+A block file with `DRAFT = True` is work in progress. Its source is committed, but the publish
+build skips it and leaves it off the index, so nothing about it is public. The preview build
+renders drafts into `tools/.build/site/` (gitignored), marked "DRAFT" on the index card, for
+review. To publish, delete the flag and run the publish build for that block. To unpublish a
+block, set the flag and `git rm -r` its folder under `three-finger-plucking/`; the build
+warns if a draft still has published pages.
 
 The build prints each variation's fingering so you can check it against your intent. Notation
 intermediates go to `tools/.build/` (ignored by git). LilyPond loads Barlow from `tools/fonts/`,
 so no system fonts are needed.
 
-To preview locally under the same base path as production:
+To preview locally under the same base path as production (for the preview build, link `tools/.build/site` instead of `$PWD`):
 
 ```bash
 mkdir -p /tmp/srv && ln -sfn "$PWD" /tmp/srv/bass-technique

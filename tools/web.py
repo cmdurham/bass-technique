@@ -78,7 +78,7 @@ def index_page(blocks):
     for b in blocks:
         n_ex = len(b.EXERCISES)
         cards.append(f'''<a class="card live" href="{PROGRAM_DIR}/block-{b.NUMBER}/">
-<div class="meta">{getattr(b, "FOCUS", "Plucking hand")} &middot; {plural(n_ex, "exercise")} &middot; PDF</div>
+<div class="meta">{"DRAFT &middot; " if getattr(b, "DRAFT", False) else ""}{getattr(b, "FOCUS", "Plucking hand")} &middot; {plural(n_ex, "exercise")} &middot; PDF</div>
 <h3>Block {b.NUMBER}</h3>
 <p><b>{b.SUBTITLE}.</b> {b.CARD}</p>
 <span class="cta">Open Block {b.NUMBER} &rarr;</span></a>''')

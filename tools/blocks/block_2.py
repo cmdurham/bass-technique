@@ -7,6 +7,7 @@ fretting pattern and the plucking cycle close (12 notes = 3 bars of quarters).
 """
 
 NUMBER = 2
+DRAFT = True          # work in progress: more exercises to come
 SUBTITLE = "Fretting and plucking finger independence"
 FOCUS = "Both hands"
 CARD = "A four-note fretting shape against the three-finger cycle, through every three-finger set of the fretting hand."
