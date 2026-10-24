@@ -63,7 +63,9 @@ cd /tmp/srv && python3 -m http.server 8080      # then open http://localhost:808
      the block's `PITCHES` (Block 1).
    - `pattern=[("E", 8), ("E", 9), ...]` plus `position=8`: a fretting pattern that repeats.
      The fretting finger is `fret - position + 1`; write `("E", 9, 3)` to override it. The
-     fretting fingers print above the staff.
+     fretting fingers print above the staff. `("r", "4")` is a rest (LilyPond duration, a whole
+     number of the variation's `dur`): it fills the bar but takes no plucking finger, and the
+     cycle carries on across it.
    - Rhythm and layout: `dur` (LilyPond duration), `time`, `per_bar`, `bars_per_line`, `tempo`,
      optional `beat` (tempo note, default `"4"`). With `pattern=`, `length` defaults to `"auto"`.
 3. Run `python3 tools/build.py N`. It prints the plucking fingers for every variation, plus the

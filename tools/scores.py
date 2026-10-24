@@ -9,12 +9,14 @@ Plucking rules (fingerings are derived, never typed):
 A variation is written one of two ways:
   strings=[...]          one string name per note; pitch per string from block.PITCHES
   pattern=[(s, fret)...] a fretting pattern, repeated; (s, fret, finger) overrides the
-                         fretting finger, otherwise it comes from position=<fret of index finger>
+                         fretting finger, otherwise it comes from position=<fret of index finger>.
+                         ("r", "4") is a rest (LilyPond duration); the plucking cycle carries
+                         on across it, and it counts toward the bar but takes no finger
 
 Checks (the build fails if any is broken):
   - the plucking cycle closes: the finger after the last note is the first finger
   - the fretting pattern closes: the written length is a whole number of patterns
-  - the line is a whole number of bars
+  - the line is a whole number of bars (rests included)
 With pattern=, length="auto" (the default) picks the shortest length that passes all three.
 """
 import pathlib, subprocess
@@ -55,13 +57,29 @@ def closes(string_nos, fingers, rake=True):
     return nxt == fingers[0]
 
 
+def _units(note_dur, rest_dur):
+    """Length of a rest in units of the variation's note duration (plain LilyPond durations only)."""
+    u, r = divmod(int(note_dur), int(rest_dur))
+    if r or u < 1:
+        raise ValueError(f"rest r{rest_dur} is not a whole number of {note_dur} notes")
+    return u
+
+
+def _played(seq):
+    """String numbers of the notes in seq, rests left out."""
+    return [x["string_no"] for x in seq if "rest" not in x]
+
+
 def expand(block, v):
-    """Variation spec -> list of notes {pitch, string_no, lh}."""
+    """Variation spec -> list of notes {pitch, string_no, lh}; rests are {rest, units}."""
     if "strings" in v:
         return [dict(pitch=block.PITCHES[s][0], string_no=block.PITCHES[s][1], lh=None) for s in v["strings"]]
     pos = v.get("position")
     cell = []
     for t in v["pattern"]:
+        if t[0] == "r":
+            cell.append(dict(rest=t[1], units=_units(v["dur"], t[1])))
+            continue
         s, fret = t[0], t[1]
         lh = t[2] if len(t) > 2 else (fret - pos + 1 if pos is not None and fret > 0 else None)
         if lh is not None and not 1 <= lh <= 4:
@@ -71,8 +89,9 @@ def expand(block, v):
     length = v.get("length", "auto")
     if length == "auto":
         for L in range(len(cell), MAX_LEN + 1, len(cell)):
-            sn = [cell[k % len(cell)]["string_no"] for k in range(L)]
-            if L % v["per_bar"] == 0 and closes(sn, pluck(sn, rake), rake):
+            seq = [cell[k % len(cell)] for k in range(L)]
+            sn = _played(seq)
+            if sum(x.get("units", 1) for x in seq) % v["per_bar"] == 0 and closes(sn, pluck(sn, rake), rake):
                 length = L
                 break
         else:
@@ -84,15 +103,19 @@ def expand(block, v):
 
 def lily_source(v, notes, fingers):
     out = []
-    per_bar, n = v["per_bar"], len(notes)
+    per_bar, n, units = v["per_bar"], len(notes), 0
     for k, note in enumerate(notes):
-        tok = f"{note['pitch']}{v['dur']}\\{note['string_no']}"
-        if note["lh"]:
-            tok += f"^{note['lh']}"
+        if "rest" in note:
+            tok = f"r{note['rest']}"
+        else:
+            tok = f"{note['pitch']}{v['dur']}\\{note['string_no']}"
+            if note["lh"]:
+                tok += f"^{note['lh']}"
         out.append(tok)
-        if (k + 1) % per_bar == 0 and k != n - 1:
+        units += note.get("units", 1)
+        if units % per_bar == 0 and k != n - 1:
             out.append("|")
-            if ((k + 1) // per_bar) % v["bars_per_line"] == 0:
+            if (units // per_bar) % v["bars_per_line"] == 0:
                 out.append("\\break")
     beat = v.get("beat", "4")
     tempo = f'\\tempo \\markup {{ \\fontsize #-1 \\note {{{beat}}} #1 \\fontsize #-1 "= {v["tempo"]}" }}'
@@ -136,17 +159,18 @@ def render(block, out_dir):
             name = f"ex{e['n']}_v{k}"
             notes = expand(block, v)
             rake = v.get("rake", True)
-            sn = [x["string_no"] for x in notes]
+            sn = _played(notes)
             fingers = pluck(sn, rake)
             if not closes(sn, fingers, rake):
                 raise ValueError(f"{name}: plucking cycle does not close: {' '.join(fingers)}")
-            if len(notes) % v["per_bar"]:
-                raise ValueError(f"{name}: {len(notes)} notes is not a whole number of {v['per_bar']}-note bars")
+            units = sum(x.get("units", 1) for x in notes)
+            if units % v["per_bar"]:
+                raise ValueError(f"{name}: {units} beats of {v['dur']} is not a whole number of {v['per_bar']}-note bars")
             ly = out_dir / f"{name}.ly"
             ly.write_text(lily_source(v, notes, fingers))
             run = subprocess.run([str(lilypond.executable()), "-dbackend=svg", "-dcrop", "-dno-point-and-click",
                                   "-o", str(out_dir / name), str(ly)], capture_output=True, text=True)
             if run.returncode != 0:
                 raise RuntimeError(f"LilyPond failed on {name}:\n{run.stderr[-2000:]}")
-            result[name] = (out_dir / f"{name}.cropped.svg", fingers, [x["lh"] for x in notes])
+            result[name] = (out_dir / f"{name}.cropped.svg", fingers, [x["lh"] for x in notes if "rest" not in x])
     return result
