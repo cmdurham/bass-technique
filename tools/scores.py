@@ -1,7 +1,9 @@
 """Notation + tab for a block, rendered with LilyPond to cropped SVG.
 
 Plucking rules (fingerings are derived, never typed):
-  - strict a-m-i cycle, never reset
+  - strict a-m-i cycle, never reset and never reversed; it starts on a unless a
+    variation sets start="m" or start="i" (the lead finger), and the repeat
+    returns to that finger
   - rake: moving to a lower-pitched string (G->D->A->E direction), the finger
     that played the last note plays the first note on the new string, and the
     cycle continues from it
@@ -40,11 +42,11 @@ def _next(f):
     return CYCLE[(CYCLE.index(f) + 1) % 3]
 
 
-def pluck(string_nos, rake=True):
+def pluck(string_nos, rake=True, start="a"):
     out = []
     for k, sn in enumerate(string_nos):
         if k == 0:
-            out.append(CYCLE[0])
+            out.append(start)
         elif rake and sn > string_nos[k - 1]:          # higher number = lower-pitched string
             out.append(out[-1])
         else:
@@ -86,12 +88,13 @@ def expand(block, v):
             raise ValueError(f"fretting finger {lh} out of range for {t} at position {pos}")
         cell.append(dict(pitch=lily_pitch(OPEN_MIDI[s] + fret), string_no=STRING_NO[s], lh=lh))
     rake = v.get("rake", True)
+    start = v.get("start", CYCLE[0])
     length = v.get("length", "auto")
     if length == "auto":
         for L in range(len(cell), MAX_LEN + 1, len(cell)):
             seq = [cell[k % len(cell)] for k in range(L)]
             sn = _played(seq)
-            if sum(x.get("units", 1) for x in seq) % v["per_bar"] == 0 and closes(sn, pluck(sn, rake), rake):
+            if sum(x.get("units", 1) for x in seq) % v["per_bar"] == 0 and closes(sn, pluck(sn, rake, start), rake):
                 length = L
                 break
         else:
@@ -160,7 +163,7 @@ def render(block, out_dir):
             notes = expand(block, v)
             rake = v.get("rake", True)
             sn = _played(notes)
-            fingers = pluck(sn, rake)
+            fingers = pluck(sn, rake, v.get("start", CYCLE[0]))
             if not closes(sn, fingers, rake):
                 raise ValueError(f"{name}: plucking cycle does not close: {' '.join(fingers)}")
             units = sum(x.get("units", 1) for x in notes)

@@ -78,7 +78,9 @@ continues onto the next page with the same footer, and a variation is never spli
 ## Plucking rules (as implemented in `tools/scores.py`)
 
 - PIMA labels, lowercase: p thumb, i index, m middle, a ring. Fretting fingers 1–4, index to pinky.
-- The cycle is **a–m–i**, in strict order, never reset.
+- The cycle is **a–m–i**, in strict order, never reset and never reversed. It starts on `a`; a variation
+  can set `start="m"` or `start="i"` to lead off from another finger, and its repeat then returns to
+  that finger.
 - **Rake:** when the next note is on a lower-pitched string (toward the E string), the finger
   that played the last note plays again on the new string, and the cycle continues from it.
   Set `rake=False` on a variation to turn this off.
