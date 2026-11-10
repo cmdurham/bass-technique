@@ -15,9 +15,8 @@ The focus is the plucking-hand rake; fretting-hand coordination returns in Block
 """
 
 NUMBER = 3
-DRAFT = True
 SUBTITLE = "String pairs and the rake"
-FOCUS = "Both hands"
+FOCUS = "Plucking hand"
 CARD = ("The a&ndash;m&ndash;i cycle across string pairs, high string first: three, four and two notes per "
         "string, climbing from the A and E strings to the G and D and back.")
 PITCHES = {}
