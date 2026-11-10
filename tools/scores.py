@@ -20,6 +20,8 @@ Checks (the build fails if any is broken):
   - the fretting pattern closes: the written length is a whole number of patterns
   - the line is a whole number of bars (rests included)
 With pattern=, length="auto" (the default) picks the shortest length that passes all three.
+open_end=True skips the cycle check: the line is one pass of the pattern, ends on a final
+barline instead of a repeat, and the cycle carries on if it is played again.
 """
 import pathlib, subprocess
 import lilypond
@@ -94,7 +96,8 @@ def expand(block, v):
         for L in range(len(cell), MAX_LEN + 1, len(cell)):
             seq = [cell[k % len(cell)] for k in range(L)]
             sn = _played(seq)
-            if sum(x.get("units", 1) for x in seq) % v["per_bar"] == 0 and closes(sn, pluck(sn, rake, start), rake):
+            if sum(x.get("units", 1) for x in seq) % v["per_bar"] == 0 and (
+                    v.get("open_end") or closes(sn, pluck(sn, rake, start), rake)):
                 length = L
                 break
         else:
@@ -127,8 +130,9 @@ def lily_source(v, notes, fingers, first=True, last=True, bar_no=1):
     tempo = f'\\tempo \\markup {{ \\fontsize #-1 \\note {{{beat}}} #1 \\fontsize #-1 "= {v["tempo"]}" }}'
     if not first:
         tempo = f"\\set Score.currentBarNumber = #{bar_no} \\bar \"\""
-    open_bar = '\\bar ".|:" ' if first else ""
-    close_bar = ' \\bar ":|."' if last else ' \\bar "|"'
+    open_end = v.get("open_end")
+    open_bar = '\\bar ".|:" ' if first and not open_end else ""
+    close_bar = (' \\bar "|."' if open_end else ' \\bar ":|."') if last else ' \\bar "|"'
     staff_extra = "" if first else " \\omit TimeSignature"
     return rf'''\version "2.25.12"
 #(ly:font-config-add-directory "{FONT_DIR}")
@@ -193,7 +197,7 @@ def render(block, out_dir):
             rake = v.get("rake", True)
             sn = _played(notes)
             fingers = pluck(sn, rake, v.get("start", CYCLE[0]))
-            if not closes(sn, fingers, rake):
+            if not v.get("open_end") and not closes(sn, fingers, rake):
                 raise ValueError(f"{name}: plucking cycle does not close: {' '.join(fingers)}")
             units = sum(x.get("units", 1) for x in notes)
             if units % v["per_bar"]:

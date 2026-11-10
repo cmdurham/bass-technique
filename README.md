@@ -93,7 +93,11 @@ continues onto the next page with the same footer, and a variation is never spli
   - **closes the fretting pattern:** the length is a whole number of patterns;
   - **fills whole bars.**
 
-  `length="auto"` picks the shortest length that passes all three. For example, a 4-note
+  `length="auto"` picks the shortest length that passes all three.
+
+  `open_end=True` drops the cycle check for a variation that is written as one pass of its
+  pattern: no repeat signs, a final barline, and the exercise text tells the player to carry the
+  cycle on (Block 3, Exercises 2 and 3). For example, a 4-note
   pattern against the 3-finger cycle closes at 12 notes, three bars of quarter notes.
 
 ## Notation conventions
