@@ -30,7 +30,7 @@ CYCLE = ["a", "m", "i"]
 STRING_NO = {"G": 1, "D": 2, "A": 3, "E": 4}
 OPEN_MIDI = {"E": 40, "A": 45, "D": 50, "G": 55}      # written pitch (bass reads an octave up)
 NAMES = ["c", "cis", "d", "dis", "e", "f", "fis", "g", "gis", "a", "ais", "b"]
-MAX_LEN = 96
+MAX_LEN = 480
 
 
 def lily_pitch(midi):
@@ -104,7 +104,10 @@ def expand(block, v):
     return [cell[k % len(cell)] for k in range(length)]
 
 
-def lily_source(v, notes, fingers):
+def lily_source(v, notes, fingers, first=True, last=True, bar_no=1):
+    """One LilyPond score. A part of a split variation (bars_per_part) sets first/last/bar_no:
+    the repeat opens on the first part and closes on the last; later parts continue the bar
+    numbers and drop the tempo and time signature."""
     out = []
     per_bar, n, units = v["per_bar"], len(notes), 0
     for k, note in enumerate(notes):
@@ -122,6 +125,11 @@ def lily_source(v, notes, fingers):
                 out.append("\\break")
     beat = v.get("beat", "4")
     tempo = f'\\tempo \\markup {{ \\fontsize #-1 \\note {{{beat}}} #1 \\fontsize #-1 "= {v["tempo"]}" }}'
+    if not first:
+        tempo = f"\\set Score.currentBarNumber = #{bar_no} \\bar \"\""
+    open_bar = '\\bar ".|:" ' if first else ""
+    close_bar = ' \\bar ":|."' if last else ' \\bar "|"'
+    staff_extra = "" if first else " \\omit TimeSignature"
     return rf'''\version "2.25.12"
 #(ly:font-config-add-directory "{FONT_DIR}")
 #(set-global-staff-size 19)
@@ -134,10 +142,10 @@ def lily_source(v, notes, fingers):
   property-defaults.fonts.serif = "Barlow"
 }}
 \header {{ tagline = ##f }}
-music = {{ \bar ".|:" {" ".join(out)} \bar ":|." }}
+music = {{ {open_bar}{" ".join(out)}{close_bar} }}
 \score {{
   \new StaffGroup \with {{ systemStartDelimiter = #'SystemStartBrace }} <<
-    \new Staff = "notes" \with {{ \omit StringNumber \numericTimeSignature \override Fingering.add-stem-support = ##t }}
+    \new Staff = "notes" \with {{ \omit StringNumber \numericTimeSignature \override Fingering.add-stem-support = ##t{staff_extra} }}
       {{ \clef bass \time {v["time"]} {tempo} \new Voice = "v" \music }}
     \new Lyrics \with {{ \override LyricText.font-family = #'sans
                         \override VerticalAxisGroup.nonstaff-relatedstaff-spacing.padding = #1.2 }}
@@ -153,8 +161,29 @@ music = {{ \bar ".|:" {" ".join(out)} \bar ":|." }}
 '''
 
 
+def _split(v, notes, fingers):
+    """Cut a variation into parts of bars_per_part bars (default: one part).
+    Returns [(notes, fingers, first_bar_number)]."""
+    size = v.get("bars_per_part")
+    if not size:
+        return [(notes, fingers, 1)]
+    parts, cur, cur_f, fi, units, start = [], [], [], iter(fingers), 0, 1
+    for note in notes:
+        cur.append(note)
+        if "rest" not in note:
+            cur_f.append(next(fi))
+        units += note.get("units", 1)
+        if units % (v["per_bar"] * size) == 0:
+            parts.append((cur, cur_f, start))
+            cur, cur_f, start = [], [], units // v["per_bar"] + 1
+    if cur:
+        parts.append((cur, cur_f, start))
+    return parts
+
+
 def render(block, out_dir):
-    """Render every variation. Returns {name: (svg_path, pluck_fingers, fretting_fingers)}."""
+    """Render every variation. Returns {name: ([svg_path, ...], pluck_fingers, fretting_fingers)};
+    a variation with bars_per_part has one SVG per part, otherwise one."""
     out_dir.mkdir(parents=True, exist_ok=True)
     result = {}
     for e in block.EXERCISES:
@@ -169,11 +198,16 @@ def render(block, out_dir):
             units = sum(x.get("units", 1) for x in notes)
             if units % v["per_bar"]:
                 raise ValueError(f"{name}: {units} beats of {v['dur']} is not a whole number of {v['per_bar']}-note bars")
-            ly = out_dir / f"{name}.ly"
-            ly.write_text(lily_source(v, notes, fingers))
-            run = subprocess.run([str(lilypond.executable()), "-dbackend=svg", "-dcrop", "-dno-point-and-click",
-                                  "-o", str(out_dir / name), str(ly)], capture_output=True, text=True)
-            if run.returncode != 0:
-                raise RuntimeError(f"LilyPond failed on {name}:\n{run.stderr[-2000:]}")
-            result[name] = (out_dir / f"{name}.cropped.svg", fingers, [x["lh"] for x in notes if "rest" not in x])
+            parts = _split(v, notes, fingers)
+            svgs = []
+            for j, (part, pf, bar_no) in enumerate(parts):
+                stem = name if len(parts) == 1 else f"{name}_p{j + 1}"
+                ly = out_dir / f"{stem}.ly"
+                ly.write_text(lily_source(v, part, pf, first=j == 0, last=j == len(parts) - 1, bar_no=bar_no))
+                run = subprocess.run([str(lilypond.executable()), "-dbackend=svg", "-dcrop", "-dno-point-and-click",
+                                      "-o", str(out_dir / stem), str(ly)], capture_output=True, text=True)
+                if run.returncode != 0:
+                    raise RuntimeError(f"LilyPond failed on {stem}:\n{run.stderr[-2000:]}")
+                svgs.append(out_dir / f"{stem}.cropped.svg")
+            result[name] = (svgs, fingers, [x["lh"] for x in notes if "rest" not in x])
     return result

@@ -68,6 +68,9 @@ cd /tmp/srv && python3 -m http.server 8080      # then open http://localhost:808
      cycle carries on across it.
    - Rhythm and layout: `dur` (LilyPond duration), `time`, `per_bar`, `bars_per_line`, `tempo`,
      optional `beat` (tempo note, default `"4"`). With `pattern=`, `length` defaults to `"auto"`.
+   - `bars_per_part=16` renders a long variation as consecutive parts of that many bars, so it can
+     flow across PDF pages: the repeat opens on the first part and closes on the last, and bar
+     numbers carry on. Use a multiple of `bars_per_line`.
 3. Run `python3 tools/build.py N`. It prints the plucking fingers for every variation, plus the
    fretting fingers and which plucking fingers each fretting finger gets. Check those against
    your intent, then commit and push.

@@ -84,7 +84,9 @@ def build(block, svgs, out_pdf):
     pages = []
     for e in block.EXERCISES:
         vs = "".join(f'''<div class="var"><div class="vrow"><div class="vt">Variation #{k}: {v["title"]}</div>
-{f'<div class="leg">{legend(block)}</div>' if k == 1 else ""}</div>{score_img(svgs[f"ex{e['n']}_v{k}"][0])}</div>''' for k, v in enumerate(e["vars"], 1))
+{f'<div class="leg">{legend(block)}</div>' if k == 1 else ""}</div>{score_img(svgs[f"ex{e['n']}_v{k}"][0][0])}</div>'''
+                     + "".join(f'<div class="var">{score_img(p)}</div>' for p in svgs[f"ex{e['n']}_v{k}"][0][1:])
+                     for k, v in enumerate(e["vars"], 1))
         pages.append(f'''<section class="exflow"><div class="foottag">Block {B} &middot; Ex {e['n']}</div><div class="rule"></div>
 <div class="hd"><div class="lbl">Exercise {e['n']}</div><div class="g">Block {roman(B)}</div></div>
 <p class="intro">{e['intro']}</p>{vs}</section>''')

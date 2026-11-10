@@ -63,7 +63,10 @@ def block_page(block, svgs, pdf_bytes, pdf_pages):
         vs = []
         for k, v in enumerate(e["vars"], 1):
             leg = f'<div class="legend">{legend(block)}</div>' if k == 1 else ""
-            svg = inline_svg(svgs[f"ex{e['n']}_v{k}"][0], f"Exercise {e['n']}, variation {k}: {v['title']}, notation and tab")
+            paths = svgs[f"ex{e['n']}_v{k}"][0]
+            svg = "".join(inline_svg(p, f"Exercise {e['n']}, variation {k}: {v['title']}, notation and tab"
+                                        + (f", part {j} of {len(paths)}" if len(paths) > 1 else ""))
+                          for j, p in enumerate(paths, 1))
             vs.append(f'''<div class="var"><div class="var-hd"><h3>Variation #{k}: {v["title"]}</h3>{leg}</div>
 <div class="score">{svg}</div>
 <p class="score-hint">Scroll sideways for the full line, or use the PDF.</p></div>''')
